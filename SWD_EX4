@@ -1,0 +1,129 @@
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.*;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+class AuthenticationService {
+    public User register(String username, String email, String password) {
+        String userId = "user-" + UUID.randomUUID();
+        return new User(userId, username, email, password);
+    }
+}
+
+class NotificationPreferences {
+    private String frequency;
+    private String channel;
+
+    public NotificationPreferences(String frequency, String channel) {
+        this.frequency = frequency;
+        this.channel = channel;
+    }
+
+    public String getFrequency() { return frequency; }
+    public String getChannel() { return channel; }
+}
+
+class Subscription {
+    private String subscriptionId;
+    private String url;
+    private NotificationPreferences preferences;
+
+    public Subscription(String subscriptionId, String url, NotificationPreferences preferences) {
+        this.subscriptionId = subscriptionId;
+        this.url = url;
+        this.preferences = preferences;
+    }
+
+    public String getSubscriptionId() { return subscriptionId; }
+    public String getUrl() { return url; }
+    public NotificationPreferences getPreferences() { return preferences; }
+}
+
+class User {
+    private String userId;
+    private String username;
+    private String email;
+    private String password;
+    private List<Subscription> subscriptions;
+
+    public User(String userId, String username, String email, String password) {
+        this.userId = userId;
+        this.username = username;
+        this.email = email;
+        this.password = password;
+        this.subscriptions = new ArrayList<>();
+    }
+
+    public String getUsername() {
+        return username;
+    }
+
+    public List<Subscription> getSubscriptions() {
+        return subscriptions;
+    }
+
+    public void addSubscription(String url, NotificationPreferences preferences) {
+        String subscriptionId = "sub-" + UUID.randomUUID();
+        subscriptions.add(new Subscription(subscriptionId, url, preferences));
+    }
+}
+
+class WebsiteMonitor {
+    private Map<String, String> urlHashes = new HashMap<>();
+
+    public boolean checkForUpdates(Subscription subscription) {
+        String url = subscription.getUrl();
+        try {
+            String currentContent = fetchWebPageContent(url);
+            String currentHash = currentContent.hashCode() + ""; // Simplified hash
+
+            if (!urlHashes.containsKey(url)) {
+                urlHashes.put(url, currentHash);
+                return false;
+            }
+
+            return !urlHashes.get(url).equals(currentHash);
+        } catch (IOException e) {
+            System.err.println("Error checking URL: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String fetchWebPageContent(String urlString) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) new URL(urlString).openConnection();
+        try (Scanner scanner = new Scanner(conn.getInputStream())) {
+            scanner.useDelimiter("\\Z");
+            return scanner.next();
+        }
+    }
+}
+
+class NotificationService {
+    public void sendNotification(User user, String message) {
+        System.out.println("Notification to " + user.getUsername() + ": " + message);
+    }
+}
+public class SWD_EX4 {
+    public static void main(String[] args) throws InterruptedException {
+        AuthenticationService authService = new AuthenticationService();
+        WebsiteMonitor monitor = new WebsiteMonitor();
+        NotificationService notificationService = new NotificationService();
+
+        User user = authService.register("Nhapham", "phamthanhnha311004@gmail.com", "12345");
+        NotificationPreferences prefs = new NotificationPreferences("daily", "email");
+        user.addSubscription("https://www.weather.com", prefs);
+
+        for (int i = 0; i < 10; i++) {
+            System.out.println("\nCheck #" + (i+1));
+            Subscription sub = user.getSubscriptions().get(0);
+            if (monitor.checkForUpdates(sub)) {
+                notificationService.sendNotification(user, "Change detected at " + sub.getUrl());
+            } else {
+                System.out.println("No changes detected");
+            }
+            Thread.sleep(5000);
+        }
+    }
+}
